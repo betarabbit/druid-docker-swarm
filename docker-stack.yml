@@ -1,0 +1,377 @@
+version: '3.6'
+
+services:
+  zookeeper1:
+    image: zookeeper:latest
+    hostname: zookeeper1
+    volumes:
+      - zookeeper_data:/data
+      - zookeeper_datalog:/datalog
+    networks:
+      - druid_net
+    ports:
+      - 2181:2181
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=0.0.0.0:2888:3888 server.2=zookeeper2:2888:3888 server.3=zookeeper3:2888:3888
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+    deploy:                 
+      replicas: 1                 
+      placement:                                                                                         
+        constraints: [node.labels.zookeeper1 == true]
+      resources:  
+        limits:                                                                                          
+          memory: 1G                                 
+        reservations:
+          memory: 1G                                                                                     
+      update_config:                                                                                     
+        parallelism: 2
+        delay: 10s  
+      restart_policy:                                
+        condition: on-failure
+
+  zookeeper2:
+    image: zookeeper:latest
+    hostname: zookeeper2
+    volumes:
+      - zookeeper_data:/data
+      - zookeeper_datalog:/datalog
+    networks:
+      - druid_net
+    ports:
+      - 2182:2181
+    environment:
+      ZOO_MY_ID: 2
+      ZOO_SERVERS: server.1=zookeeper1:2888:3888 server.2=0.0.0.0:2888:3888 server.3=zookeeper3:2888:3888
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+    deploy:                       
+      replicas: 1                                                                                        
+      placement:                                                                                         
+        constraints: [node.labels.zookeeper2 == true]
+      resources:                                                                                         
+        limits:                                                                                          
+          memory: 1G                                 
+        reservations:                                                                                    
+          memory: 1G                                                                                     
+      update_config:                                 
+        parallelism: 2                                                                                   
+        delay: 10s                                                                                       
+      restart_policy:                                
+        condition: on-failure
+
+  zookeeper3:
+    image: zookeeper:latest
+    hostname: zookeeper3
+    volumes:
+      - zookeeper_data:/data
+      - zookeeper_datalog:/datalog
+    networks:
+      - druid_net
+    ports:
+      - 2183:2181
+    environment:
+      ZOO_MY_ID: 3
+      ZOO_SERVERS: server.1=zookeeper1:2888:3888 server.2=zookeeper2:2888:3888 server.3=0.0.0.0:2888:3888
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+    deploy:                                                                                              
+      replicas: 1                                                                                        
+      placement:                                                                                         
+        constraints: [node.labels.zookeeper3 == true]                                                    
+      resources:                                                                                         
+        limits:                                                                                          
+          memory: 1G                                                                                     
+        reservations:                                                                                    
+          memory: 1G                                                                                     
+      update_config:                                                                                     
+        parallelism: 2                                                                                   
+        delay: 10s                                                                                       
+      restart_policy:                                                                                    
+        condition: on-failure
+  
+  db:
+    image: postgres:latest
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - druid_net
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_DB: druid
+      POSTGRES_USER: druid
+      POSTGRES_PASSWORD: druid
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+    deploy:
+      replicas: 1
+      placement:                                                                                         
+        constraints: [node.labels.postgres == true]
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 4G
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+  
+  broker:
+    image: casplatformregistry.azurecr.io/druid:v1
+    networks:
+      - druid_net
+    ports:
+      - 8082:8082
+    command: broker
+    configs:
+      - source: common_runtime_config
+        target: /opt/druid/conf/druid/_common/common.runtime.properties
+      - source: common_log4j_config
+        target: /opt/druid/conf/druid/_common/log4j2.xml
+      - source: broker_jvm_config
+        target: /opt/druid/conf/druid/broker/jvm.config
+      - source: broker_runtime_config
+        target: /opt/druid/conf/druid/broker/runtime.properties
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 16G
+        reservations:
+          memory: 16G
+      placement:
+        constraints: [node.role == worker]
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+  
+  coordinator:
+    image: casplatformregistry.azurecr.io/druid:v1
+    networks:
+      - druid_net
+    ports:
+      - 8081:8081
+    command: coordinator
+    configs:
+      - source: common_runtime_config
+        target: /opt/druid/conf/druid/_common/common.runtime.properties
+      - source: common_log4j_config
+        target: /opt/druid/conf/druid/_common/log4j2.xml
+      - source: coordinator_jvm_config
+        target: /opt/druid/conf/druid/coordinator/jvm.config
+      - source: coordinator_runtime_config
+        target: /opt/druid/conf/druid/coordinator/runtime.properties
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 8G
+      placement:
+        constraints: [node.role == worker]
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+  
+  historical:
+    image: casplatformregistry.azurecr.io/druid:v1
+    networks:
+      - druid_net
+    ports:
+      - 8083:8083
+    command: historical
+    configs:
+      - source: common_runtime_config
+        target: /opt/druid/conf/druid/_common/common.runtime.properties
+      - source: common_log4j_config
+        target: /opt/druid/conf/druid/_common/log4j2.xml
+      - source: historical_jvm_config
+        target: /opt/druid/conf/druid/historical/jvm.config
+      - source: historical_runtime_config
+        target: /opt/druid/conf/druid/historical/runtime.properties
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 30G
+        reservations:
+          memory: 30G
+      placement:
+        constraints: [node.role == worker]
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+  
+  middleManager:
+    image: casplatformregistry.azurecr.io/druid:v1
+    networks:
+      - druid_net
+    command: middleManager
+    configs:
+      - source: common_runtime_config
+        target: /opt/druid/conf/druid/_common/common.runtime.properties
+      - source: common_log4j_config
+        target: /opt/druid/conf/druid/_common/log4j2.xml
+      - source: middleManager_jvm_config
+        target: /opt/druid/conf/druid/middleManager/jvm.config
+      - source: middleManager_runtime_config
+        target: /opt/druid/conf/druid/middleManager/runtime.properties
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 16G
+        reservations:
+          memory: 16G
+      placement:
+        constraints: [node.role == worker]
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+  
+  overlord:
+    image: casplatformregistry.azurecr.io/druid:v1
+    networks:
+      - druid_net
+    ports:
+      - 8090:8090
+    configs:
+      - source: common_runtime_config
+        target: /opt/druid/conf/druid/_common/common.runtime.properties
+      - source: common_log4j_config
+        target: /opt/druid/conf/druid/_common/log4j2.xml
+      - source: overlord_jvm_config
+        target: /opt/druid/conf/druid/overlord/jvm.config
+      - source: overlord_runtime_config
+        target: /opt/druid/conf/druid/overlord/runtime.properties
+    command: overlord
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 8G
+      placement:
+        constraints: [node.role == worker]
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+
+  tranquility:
+    image: casplatformregistry.azurecr.io/tranquility:v1
+    networks:
+      - druid_net
+    ports:
+      - 8200:8200
+    configs:
+      - source: tranquility_config
+        target: /opt/druid/tranquility/conf/kafka.json
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 4G
+      placement:
+        constraints: [node.role == worker]
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+
+volumes:
+  zookeeper_data:
+  zookeeper_datalog:
+  postgres_data:
+
+networks:
+  druid_net:
+    driver: overlay
+
+configs:
+  common_runtime_config:
+    file: ./conf/druid/_common/common.runtime.properties
+  common_log4j_config:
+    file: ./conf/druid/_common/log4j2.xml
+  broker_jvm_config:
+    file: ./conf/druid/broker/jvm.config
+  broker_runtime_config:
+    file: ./conf/druid/broker/runtime.properties
+  coordinator_jvm_config:
+    file: ./conf/druid/coordinator/jvm.config
+  coordinator_runtime_config:
+    file: ./conf/druid/coordinator/runtime.properties
+  historical_jvm_config:
+    file: ./conf/druid/historical/jvm.config
+  historical_runtime_config:
+    file: ./conf/druid/historical/runtime.properties
+  middleManager_jvm_config:
+    file: ./conf/druid/middleManager/jvm.config
+  middleManager_runtime_config:
+    file: ./conf/druid/middleManager/runtime.properties
+  overlord_jvm_config:
+    file: ./conf/druid/overlord/jvm.config
+  overlord_runtime_config:
+    file: ./conf/druid/overlord/runtime.properties
+  tranquility_config:
+    file: ./conf/tranquility/access_control/kafka.json

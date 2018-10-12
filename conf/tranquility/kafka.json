@@ -1,0 +1,66 @@
+{
+  "dataSources" : {
+    "data_source_example" : {
+      "spec" : {
+        "dataSchema" : {
+          "dataSource" : "data_source_example",
+          "parser" : {
+            "type" : "string",
+            "parseSpec" : {
+              "timestampSpec" : {
+                "column" : "timestamp",
+                "format" : "posix"
+              },
+              "dimensionsSpec" : {
+                "dimensions" : [
+                  "username"
+                ]
+              },
+              "format": "json"
+            }
+          },
+          "granularitySpec": {
+            "type": "uniform",
+            "segmentGranularity": "hour",
+            "queryGranularity": "none"
+          },
+          "metricsSpec": [
+            {
+              "type": "longSum",
+              "name": "transCltTotTxOctCnt",
+              "fieldName": "transCltTotTxOctCnt"
+            },
+            {
+              "type": "longSum",
+              "name": "transCltTotRxOctCnt",
+              "fieldName": "transCltTotRxOctCnt"
+            }
+          ]
+        },
+        "ioConfig": {
+          "type": "realtime"
+        },
+        "tuningConfig": {
+          "type": "realtime",
+          "maxRowsInMemory": "100000",
+          "intermediatePersistPeriod": "PT30M",
+          "windowPeriod": "PT30M"
+        }
+      },
+      "properties": {
+        "task.partitions" : "1",
+        "task.replicants" : "1",
+        "topicPattern" : "kafka-topic"
+      }
+    }
+  },
+  "properties": {
+    "zookeeper.connect": "zookeeper1:2181",
+    "druid.discovery.curator.path": "/druid/discovery",
+    "druid.selectors.indexing.serviceName": "druid/overlord",
+    "commit.periodMillis": "15000",
+    "consumer.numThreads": "2",
+    "kafka.zookeeper.connect": "",
+    "kafka.group.id": "tranquility-kafka"
+  }
+}

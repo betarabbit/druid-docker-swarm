@@ -374,4 +374,4 @@ configs:
   overlord_runtime_config:
     file: ./conf/druid/overlord/runtime.properties
   tranquility_config:
-    file: ./conf/tranquility/access_control/kafka.json
+    file: ./conf/tranquility/kafka.json
